@@ -3,8 +3,7 @@ library(rvest)
 #kworb scrape
 Spotifychart<-read_html("http://kworb.net/spotify/country/us_weekly_totals.html")
 Spotifychart
-#select nodes 
-?html_nodes
+
 #using selectorgadget for html nodes
 artist<-Spotifychart%>%html_nodes(".mp a:nth-child(1)")%>%html_text
 title<-Spotifychart%>%html_nodes("a+ a")%>%html_text
@@ -24,6 +23,8 @@ Rank <- as.numeric(as.integer(Rank))
 
 
 #make variables numeric (DESTRING!!!!)
+install.packages("taRfix")
+library(taRfix)
 destring(totalweeks)
 totalweeks <- as.numeric(as.character(totalweeks))
 
