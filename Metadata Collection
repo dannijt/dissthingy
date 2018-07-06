@@ -1,0 +1,181 @@
+install.packages("jsonlite")
+install.packages("Rcurl")
+install.packages("httr")
+install.packages("xml2")
+library(jsonlite)
+library(httr)
+library(RCurl)
+
+# Authentication (Client Id and Secret- make spotify developer account) 
+
+
+client_id <-"e4f3939a5c4d4d12bfec03c18e3c57ef"
+client_secret <-"5e402369f6d14e9d84e925ff88ce84f8"
+
+id_secret <- base64(paste(client_id,client_secret,sep=':'))[[1]]
+my_headers <- add_headers(c(Authorization=paste('Basic',id_secret,sep=' ')))
+my_body <- list(grant_type='client_credentials')
+my_token <- content(POST('https://accounts.spotify.com/api/token', my_headers,body=my_body,encode='form'))
+
+#bearer authorzation
+auth_token <- add_headers(c(Authorization = paste("Bearer", my_token$access_token, sep = " ")))
+auth_token
+
+
+
+# Define Search Artists function 
+
+# Base API and endpoint 
+
+base <- "https://api.spotify.com/"
+auth_endpoint <- "api/token"
+search_endpoint <- "v1/search"
+artist_endpoint <- "v1/artists/"
+
+# This part returns the artist URI with get_artist_ID ("artist name")
+
+get_artist_ID <- function(artist = "bob dylan", search_type = "artist", limit = 1){
+  search_url <- paste0(base, search_endpoint, "?q=", 
+                       gsub(" ", "%20", artist),
+                       "&type=", search_type)
+  
+  results <- GET(search_url, auth_token)
+  results <- content(results)
+  
+  artist_id <- results$artists$items[[1]]$id
+  
+  return(artist_id)
+  
+}
+
+#This part returns genre info only. ex: get_artist genre(artist="radiohead") 
+
+get_artist_genre <- function(artist = "bob dylan"){
+  artist_info <- GET(paste0(base, artist_endpoint, get_artist_ID(artist)),
+                     auth_token)
+  
+  artist_txt <- content(artist_info, "text")
+  
+  artist_list <- fromJSON(artist_txt, flatten = TRUE)
+  return(artist_list$genres)
+  
+}
+
+#Steps for creating Superstar Status control variable 
+# Superstar status = the single has been on the charts for more than 100 weeks
+
+#define data frame and make sure totalweeks is nuemric and values aren't changing- DESTRING!!!!
+small_spotify <-Spotify_dataset[1:100,]
+install.packages("taRifx")
+library(taRifx)
+destring(small_spotify$totalweeks)
+small_spotify$totalweeks <- as.numeric(as.character(small_spotify$totalweeks))
+
+# Loop over total weeks to print out status 
+
+superlist <- list()
+
+for (i in 1:nrow(small_spotify)) {
+  totalweeks_small <- small_spotify[i,"totalweeks"]
+  artist_small <- small_spotify [i,"artist"]
+  track_small <- small_spotify[i,"title"]
+  if (totalweeks_small >= 100) {
+    superlist[i]<- print(paste("superstar"))
+    
+  } else {
+    superlist[i]<- print(paste("no"))
+  }
+} 
+
+#Add results to data frame 
+
+super_vec <- c("superlist")
+small_spotify$status <- c(superlist)
+small_spotify
+status <- c(small_spotify$status)
+
+
+install.packages("purrr")
+library(purrr)
+# subset data (make sure rank is included in dataframe) 
+#1-50 cuz 1-100 isnt working?- will have to fix this. 
+
+genre_test <- c(small_spotify[1:50,2])
+genre_test[] <- as.character(genre_test)
+                                             #Test
+                                              genre_test
+                                              class(genre_test)
+                                              is.atomic(genre_test)
+library(purrr)
+artist_chart_list <- vector("list", length = length(genre_test))
+names(artist_chart_list) <- genre_test
+
+ar_gen1 <- map(genre_test, get_artist_genre)
+
+#get the second half  of the artist genres
+
+genre_test2 <- c(small_spotify[51:100,2])
+genre_test2[] <- as.character(genre_test2)
+                                            #Test
+                                            genre_test2
+                                            class(genre_test2)
+                                            is.atomic(genre_test2)
+
+artist_chart_list2 <- vector("list", length = length(genre_test2))
+names(artist_chart_list2) <- genre_test2
+ar_gen2 <- map(genre_test2, get_artist_genre)
+
+# merge lists 
+        ar_gen_list <- append(ar_gen1,ar_gen2, after= 50)
+        
+#clean up artist genre info text 
+        ar_gen_list <- gsub("c(", "", ar_gen_list, fixed="TRUE")
+        ar_gen_list <- gsub(")", "", ar_gen_list, fixed="TRUE")
+        
+        
+ # Create new df where genre info will go. 
+        Spotify_descriptive <- data.frame(Rank,artist,title,stringsAsFactors = FALSE)
+        small_descriptive <- Spotify_descriptive[1:100,]
+              
+ #Add artist genre info. to descriptive data frame 
+         ar_gen_vec <- c("ar_gen_list")
+         small_descriptive$ArtistGenre <- c(ar_gen_list)
+         small_descriptive
+        
+        
+        
+                                       #Getting artist type metadata from Musicbrainz API 
+ 
+devtools::install_github("dmi3kno/musicbrainz")
+install.packages("dplyr")
+install.packages("furrr")
+install.packages("purrr")
+library(purrr)
+library(furrr)
+library(dplyr)
+library(musicbrainz)
+
+# edit wrapper search_artist function
+                            my_typesearch <- function(x)
+                            {search_artists(x, limit = 1) %>% 
+                                select(name, type, gender)}
+
+#apply function to subset of descriptive data frame 
+
+                  list_test_3 <- c(small_descriptive[1:100,2])
+                  list_test_3 [] <- as.character(list_test_3)
+                  testing_list_4 <- vector("list", length = length(list_test_3))
+                  names(testing_list_4) <- list_test_3
+
+                testing_list_5 <- map_df(list_test_3, my_typesearch)
+
+#merge type and gender and edit fields 
+            install.packages("tidyr")                
+            library(tidyr)
+            ArtistType <- paste(testing_list_5$type,testing_list_5$gender, sep = " ")
+            ArtistType<- gsub("Person","Solo",ArtistType)
+            ArtistType <- gsub("NA",'', ArtistType)
+
+#add to descriptive data frame 
+                              small_descriptive$type <- c(ArtistType)
+ 
