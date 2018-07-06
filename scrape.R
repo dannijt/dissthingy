@@ -27,11 +27,6 @@ Rank <- as.numeric(as.integer(Rank))
 destring(totalweeks)
 totalweeks <- as.numeric(as.character(totalweeks))
 
-#workin on this 
-destring(totalstreams)
-totalstreams <-as.numeric(as.character(totalstreams))
-destring(totalstreams)
-totalstreams <-as.integer(as.character(totalstreams))
 
 
 
