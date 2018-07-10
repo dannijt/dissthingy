@@ -217,3 +217,38 @@ library(musicbrainz)
         colnames(small_descriptive) <- c("Rank", "Title", "Artist", "Artist Genre", "Type", "Track Genre 1", "Track Genre 2")
 
         small_descriptive <-separate(small_descriptive, 'Artist Genre',into = c("Ar.Genre1", "Ar.Genre2", "Ar.Genre3"), sep= ",") 
+
+
+
+
+
+            # Spotify API with wrapper to get track audio features, track popularity, an artists number of followers. 
+
+devtools::install_github('charlie86/spotifyr')
+devtools::install_github('JosiahParry/geniusR')
+library(spotifyr)
+
+Sys.setenv(SPOTIFY_CLIENT_ID = "e4f3939a5c4d4d12bfec03c18e3c57ef")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "5e402369f6d14e9d84e925ff88ce84f8")
+
+access_token <- get_spotify_access_token()
+      
+                 
+                 #Create data frame with Artist and track Uris'. URIs are used for the rest of the look ups I need in this wrapper. 
+
+#Define function from get_tracks wrapper function 
+#we want a data frame 
+
+                URIs <- function(x=Track) {
+                  output <- get_tracks(x, return_closest_track = TRUE) %>%
+                    select(artist_uri)
+                 output2 <- get_tracks(x, return_closest_track = TRUE) %>%
+                   select(track_uri)
+                 hey<-data.frame(output, output2)
+                 colnames(hey) <- c("artisturi","trackuri")
+                 return(hey)
+                }
+#nsubset existing data frame to apply function and new data frame for URI info. 
+          lil <- ArtistTrack[1:100,2] 
+          uri_info <-map_df(lil,URIs)
+          uri_base <- cbind(ArtistTrack,uri_info)
