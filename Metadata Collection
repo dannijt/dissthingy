@@ -178,4 +178,42 @@ library(musicbrainz)
 
 #add to descriptive data frame 
                               small_descriptive$type <- c(ArtistType)
- 
+                              
+                              
+                              
+                              
+                                            #MusicxMatch API to get Track Genre 
+  install.packages ("devtools")
+  library(devtools)
+  install_github("fernandabruno/musixmatchR")
+  library(musixmatchR)
+  
+  #Set up environment. 
+              apikey <- "39a1a9decf0f3adc32b5bdad4c55a600"
+              ArtistTrack <- small_descriptive[,2:3]
+              colnames(ArtistTrack)<- c("Artist", "Track")
+                 
+ #define function 
+             song_genre <- function(x= artist, y= track) {
+              output <- searchTrack(x, y,apikey)
+              output_1 <-head(output[["song_genre"]],1)
+              output_2 <- as.character(as.factor(output_1))
+              return(paste(output_2))
+            }
+  #iterate 
+              song_1 <- ArtistTrack %>% rowwise %>% 
+              mutate(stuff = song_genre(Artist,Track)) %>%
+              tidyr::separate(stuff,c("Track Genre 1", " Track Genre 2"), sep = ",") 
+              
+    #add track genre to descriptive data frame 
+    
+          song_2 <- song_1 %>%
+         select(`Track Genre 1`, ` Track Genre 2`)
+       
+      small_descriptive <- cbind(small_descriptive, song_2)
+      
+# organize, rename cols, split artist genre. 
+
+        colnames(small_descriptive) <- c("Rank", "Title", "Artist", "Artist Genre", "Type", "Track Genre 1", "Track Genre 2")
+
+        small_descriptive <-separate(small_descriptive, 'Artist Genre',into = c("Ar.Genre1", "Ar.Genre2", "Ar.Genre3"), sep= ",") 
