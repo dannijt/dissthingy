@@ -9,8 +9,8 @@ library(RCurl)
 # Authentication (Client Id and Secret- make spotify developer account) 
 
 
-client_id <-"e4f3939a5c4d4d12bfec03c18e3c57ef"
-client_secret <-"5e402369f6d14e9d84e925ff88ce84f8"
+client_id <-"XXXXXXXXXX"
+client_secret <-"XXXXXXXXXXXXXXXXX"
 
 id_secret <- base64(paste(client_id,client_secret,sep=':'))[[1]]
 my_headers <- add_headers(c(Authorization=paste('Basic',id_secret,sep=' ')))
@@ -189,7 +189,7 @@ library(musicbrainz)
   library(musixmatchR)
   
   #Set up environment. 
-              apikey <- "39a1a9decf0f3adc32b5bdad4c55a600"
+              apikey <- "XXXXXXXXXXXXXXXX"
               ArtistTrack <- small_descriptive[,2:3]
               colnames(ArtistTrack)<- c("Artist", "Track")
                  
@@ -228,8 +228,8 @@ devtools::install_github('charlie86/spotifyr')
 devtools::install_github('JosiahParry/geniusR')
 library(spotifyr)
 
-Sys.setenv(SPOTIFY_CLIENT_ID = "e4f3939a5c4d4d12bfec03c18e3c57ef")
-Sys.setenv(SPOTIFY_CLIENT_SECRET = "5e402369f6d14e9d84e925ff88ce84f8")
+Sys.setenv(SPOTIFY_CLIENT_ID = "XXXXXXXXXX")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "XXXXXXXXXXXXXX")
 
 access_token <- get_spotify_access_token()
       
