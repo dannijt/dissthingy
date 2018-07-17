@@ -128,19 +128,18 @@ ar_gen2 <- map(genre_test2, get_artist_genre)
 # merge lists 
         ar_gen_list <- append(ar_gen1,ar_gen2, after= 50)
         
+        
 #clean up artist genre info text 
+        ar_gen_list <- noquote(ar_gen_list)
         ar_gen_list <- gsub("c(", "", ar_gen_list, fixed="TRUE")
         ar_gen_list <- gsub(")", "", ar_gen_list, fixed="TRUE")
+        gsub('\"', "", tidySD$Ar.fixed = TRUE)
         
         
- # Create new df where genre info will go. 
-        Spotify_descriptive <- data.frame(Rank,artist,title,stringsAsFactors = FALSE)
-        small_descriptive <- Spotify_descriptive[1:100,]
-              
  #Add artist genre info. to descriptive data frame 
          ar_gen_vec <- c("ar_gen_list")
-         small_descriptive$ArtistGenre <- c(ar_gen_list)
-         small_descriptive
+         small_spotify$ArtistGenre <- c(ar_gen_list)
+         small_spotify
         
         
         
@@ -160,9 +159,9 @@ library(musicbrainz)
                             {search_artists(x, limit = 1) %>% 
                                 select(name, type, gender)}
 
-#apply function to subset of descriptive data frame 
+#apply function to list subset of descriptive data frame 
 
-                  list_test_3 <- c(small_descriptive[1:100,2])
+                  list_test_3 <- c(small_spotify[1:100,2])
                   list_test_3 [] <- as.character(list_test_3)
                   testing_list_4 <- vector("list", length = length(list_test_3))
                   names(testing_list_4) <- list_test_3
@@ -170,14 +169,16 @@ library(musicbrainz)
                 testing_list_5 <- map_df(list_test_3, my_typesearch)
 
 #merge type and gender and edit fields 
-            install.packages("tidyr")                
-            library(tidyr)
+install.packages("tidyr")                
+library(tidyr)
             ArtistType <- paste(testing_list_5$type,testing_list_5$gender, sep = " ")
             ArtistType<- gsub("Person","Solo",ArtistType)
             ArtistType <- gsub("NA",'', ArtistType)
 
-#add to descriptive data frame 
-                              small_descriptive$type <- c(ArtistType)
+#add to data frame 
+                              small_spotify$type <- c(ArtistType)
+                              
+                              
                               
                               
                               
@@ -190,7 +191,7 @@ library(musicbrainz)
   
   #Set up environment. 
               apikey <- "XXXXXXXXXXXXXXXX"
-              ArtistTrack <- small_descriptive[,2:3]
+              ArtistTrack <- small_spotify[,2:3]
               colnames(ArtistTrack)<- c("Artist", "Track")
                  
  #define function 
@@ -210,14 +211,14 @@ library(musicbrainz)
           song_2 <- song_1 %>%
          select(`Track Genre 1`, ` Track Genre 2`)
        
-      small_descriptive <- cbind(small_descriptive, song_2)
+      small_spotify <- cbind(small_spotify, song_2)
       
 # organize, rename cols, split artist genre. 
-
-        colnames(small_descriptive) <- c("Rank", "Title", "Artist", "Artist Genre", "Type", "Track Genre 1", "Track Genre 2")
-
-        small_descriptive <-separate(small_descriptive, 'Artist Genre',into = c("Ar.Genre1", "Ar.Genre2", "Ar.Genre3"), sep= ",") 
-
+        library(tidyverse)
+         
+         colnames(small_spotify) <- c("Rank", "Artist", "Title", "Total Streams", "Total Weeks", "Status", "Artist Genre", "Track Genre 1", "Track Genre 2")
+        
+        small_spotify <-separate(small_spotify, 'Artist Genre',into = c("Ar.Genre1", "Ar.Genre2", "Ar.Genre3"), sep= ",") 
 
 
 
@@ -248,7 +249,45 @@ access_token <- get_spotify_access_token()
                  colnames(hey) <- c("artisturi","trackuri")
                  return(hey)
                 }
-#nsubset existing data frame to apply function and new data frame for URI info. 
+          # lil is just the artist and track name, uri_info is a data frame of URI info, bind uri info to small_spotify 
+
           lil <- ArtistTrack[1:100,2] 
           uri_info <-map_df(lil,URIs)
-          uri_base <- cbind(ArtistTrack,uri_info)
+          small_spotify <- cbind(small_spotify,uri_info)
+          
+  # Make sure each URI is unique so we can use URI for searches.... find and replace duplicates 
+              small_spotify %>%
+              filter(duplicated(small_spotify$track_uri))
+  
+  #Replace dubplicate Track URIS found in row 56 and 38 
+                            small_spotify[56,14] <- "50kpGaPAhYJ3sGmk6vplg0"
+                            small_spotify[56,13] <- "1uNFoZAHBGtllmzznpCI3s"
+                            small_spotify[38,13] <- "1uNFoZAHBGtllmzznpCI3s"
+                            small_spotify[38,14] <- "09CtPGIpYB4BrO8qb1RGsF"
+
+                        # Add Track popularity to Small_spotify 
+                       
+  #Track popularity function 
+                track_pop <- function(x) {
+                  output <- get_track_popularity(x)
+                  output <- data.frame(x, output, stringsAsFactors = FALSE)
+                  return(output) 
+                }
+# Use function to iterate over list of tracks 
+                  e <- track_pop(tracks) 
+                  e <- e %>% select(track_popularity)
+#add to data frame.  
+                  small_spotify <- cbind(small_spotify,e)
+                  cbind(small_spotify,e)
+                  
+                  
+                  
+                                # repeat the process for number of artist followers. 
+#define function
+                      artist_follow <- function(x){ 
+                        output<- get_artists(x, return_closest_artist =  TRUE)
+                        output <- output %>% select(artist_num_followers)
+                        return(output)}
+#use map function to get data frame output of artist followers. 
+                          w <- map_df(small_spotify$Artist, artist_follow)
+                          small_spotify <- cbind(small_spotify,w)
