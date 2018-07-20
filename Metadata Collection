@@ -291,3 +291,16 @@ access_token <- get_spotify_access_token()
 #use map function to get data frame output of artist followers. 
                           w <- map_df(small_spotify$Artist, artist_follow)
                           small_spotify <- cbind(small_spotify,w)
+                          
+                                                   # Get Album each track is on. 
+         
+         album <- function(x, y){
+           out <- get_tracks(x, y, return_closest_track = TRUE)
+           out <-  head(out[["album_name"]],1)
+           return(paste(out))}
+         
+         alb_1 <- ArtistTrack %>% rowwise %>% 
+           mutate(trackalbum = album(Track,Artist))
+           
+           small_spotify <- cbind(small_spotify, alb_1)
+           
