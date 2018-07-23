@@ -320,13 +320,9 @@ release_date_final <- left_join(release_date2,T_release) %>%
 # Add to data frame
 small_spotify <- cbind(small_spotify,release_date_final[,3:4])
 
+                                    #Order and rename colnames in new data frame 
+
 colnames(small_spotify)
-#Rank(1), Artist(2), Artist URi(10), Track(3), trackuri(11), track release date(30), 
-#album(29), total streams(4), total weeks(5), track pop(26), artist followers(27), , 
-#t. gen 1(7), t.gen 2(8), , ar gen(28)
-
-#1, 2, 10, 3, 11, 30, 29, 
-
 
 new_spotify <- small_spotify %>%
   select(Rank, Artist, artisturi, Track, trackuri, 
