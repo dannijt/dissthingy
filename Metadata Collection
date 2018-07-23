@@ -1,306 +1,343 @@
-install.packages("jsonlite")
-install.packages("Rcurl")
-install.packages("httr")
+
+
+install.packages("rvest")
 install.packages("xml2")
-library(jsonlite)
-library(httr)
-library(RCurl)
+install.packages("tidyverse")
+install.packages("taRifx")
 
-# Authentication (Client Id and Secret- make spotify developer account) 
+#kworb scrape
+library(rvest)
+Spotifychart<-read_html("http://kworb.net/spotify/country/us_weekly_totals.html")
+Spotifychart
 
+#using selectorgadget for html nodes
+artist<-Spotifychart%>%html_nodes(".mp a:nth-child(1)")%>%html_text
+track<-Spotifychart%>%html_nodes("a+ a")%>%html_text
+totalstreams<-Spotifychart%>%html_nodes(".mini~ td+ td")%>%html_text(trim = TRUE)
+totalweeks<-Spotifychart%>%html_nodes(".mp+ td")%>%html_text
 
-client_id <-"XXXXXXXXXX"
-client_secret <-"XXXXXXXXXXXXXXXXX"
-
-id_secret <- base64(paste(client_id,client_secret,sep=':'))[[1]]
-my_headers <- add_headers(c(Authorization=paste('Basic',id_secret,sep=' ')))
-my_body <- list(grant_type='client_credentials')
-my_token <- content(POST('https://accounts.spotify.com/api/token', my_headers,body=my_body,encode='form'))
-
-#bearer authorzation
-auth_token <- add_headers(c(Authorization = paste("Bearer", my_token$access_token, sep = " ")))
-auth_token
-
+#turn into data frame
+Spotify_dataset<-data.frame(artist,track,totalstreams,totalweeks, stringsAsFactors = FALSE)
+Spotify_dataset
 
 
-# Define Search Artists function 
+#Add rank column 
+Spotify_dataset <- tibble::rowid_to_column(Spotify_dataset, "Rank")
+Rank <- c(Spotify_dataset$Rank)
+Rank <- as.numeric(as.integer(Rank))
 
-# Base API and endpoint 
 
-base <- "https://api.spotify.com/"
-auth_endpoint <- "api/token"
-search_endpoint <- "v1/search"
-artist_endpoint <- "v1/artists/"
+#make variables numeric (DESTRING!!!!)
+library(taRifx)
+destring(totalweeks)
+totalweeks <- as.numeric(as.character(totalweeks))
 
-# This part returns the artist URI with get_artist_ID ("artist name")
 
-get_artist_ID <- function(artist = "bob dylan", search_type = "artist", limit = 1){
-  search_url <- paste0(base, search_endpoint, "?q=", 
-                       gsub(" ", "%20", artist),
-                       "&type=", search_type)
-  
-  results <- GET(search_url, auth_token)
-  results <- content(results)
-  
-  artist_id <- results$artists$items[[1]]$id
-  
-  return(artist_id)
-  
-}
-
-#This part returns genre info only. ex: get_artist genre(artist="radiohead") 
-
-get_artist_genre <- function(artist = "bob dylan"){
-  artist_info <- GET(paste0(base, artist_endpoint, get_artist_ID(artist)),
-                     auth_token)
-  
-  artist_txt <- content(artist_info, "text")
-  
-  artist_list <- fromJSON(artist_txt, flatten = TRUE)
-  return(artist_list$genres)
-  
-}
-
-#Steps for creating Superstar Status control variable 
+#sample dataframe to work in 
+small_spotify <-Spotify_dataset[1:100,]#Superstar Status control variable 
+# This is next because we don't need any APIs for this. 
 # Superstar status = the single has been on the charts for more than 100 weeks
 
-#define data frame and make sure totalweeks is nuemric and values aren't changing- DESTRING!!!!
-small_spotify <-Spotify_dataset[1:100,]
-install.packages("taRifx")
-library(taRifx)
-destring(small_spotify$totalweeks)
-small_spotify$totalweeks <- as.numeric(as.character(small_spotify$totalweeks))
+#using the Small_spotify dataframe make sure totalweeks is nuemric and values aren't changing- DESTRING!!!!
+      library(taRifx)
+      destring(small_spotify$totalweeks)
+      small_spotify$totalweeks <- as.numeric(as.character(small_spotify$totalweeks))
 
 # Loop over total weeks to print out status 
 
-superlist <- list()
-
-for (i in 1:nrow(small_spotify)) {
-  totalweeks_small <- small_spotify[i,"totalweeks"]
-  artist_small <- small_spotify [i,"artist"]
-  track_small <- small_spotify[i,"title"]
-  if (totalweeks_small >= 100) {
-    superlist[i]<- print(paste("superstar"))
-    
-  } else {
-    superlist[i]<- print(paste("no"))
-  }
-} 
+        superlist <- list()
+        
+        for (i in 1:nrow(small_spotify)) {
+          totalweeks_small <- small_spotify[i,"totalweeks"]
+          artist_small <- small_spotify [i,"artist"]
+          track_small <- small_spotify[i,"track"]
+          if (totalweeks_small >= 100) {
+            superlist[i]<- print(paste("superstar"))
+            
+          } else {
+            superlist[i]<- print(paste("no"))
+          }
+        } 
 
 #Add results to data frame 
+          super_vec <- c("superlist")
+          small_spotify$status <- c(superlist)
+          small_spotify
+          status <- c(small_spotify$status)
 
-super_vec <- c("superlist")
-small_spotify$status <- c(superlist)
-small_spotify
-status <- c(small_spotify$status)
-
-
-install.packages("purrr")
-library(purrr)
-# subset data (make sure rank is included in dataframe) 
-#1-50 cuz 1-100 isnt working?- will have to fix this. 
-
-genre_test <- c(small_spotify[1:50,2])
-genre_test[] <- as.character(genre_test)
-                                             #Test
-                                              genre_test
-                                              class(genre_test)
-                                              is.atomic(genre_test)
-library(purrr)
-artist_chart_list <- vector("list", length = length(genre_test))
-names(artist_chart_list) <- genre_test
-
-ar_gen1 <- map(genre_test, get_artist_genre)
-
-#get the second half  of the artist genres
-
-genre_test2 <- c(small_spotify[51:100,2])
-genre_test2[] <- as.character(genre_test2)
-                                            #Test
-                                            genre_test2
-                                            class(genre_test2)
-                                            is.atomic(genre_test2)
-
-artist_chart_list2 <- vector("list", length = length(genre_test2))
-names(artist_chart_list2) <- genre_test2
-ar_gen2 <- map(genre_test2, get_artist_genre)
-
-# merge lists 
-        ar_gen_list <- append(ar_gen1,ar_gen2, after= 50)
-        
-        
-#clean up artist genre info text 
-        ar_gen_list <- noquote(ar_gen_list)
-        ar_gen_list <- gsub("c(", "", ar_gen_list, fixed="TRUE")
-        ar_gen_list <- gsub(")", "", ar_gen_list, fixed="TRUE")
-        gsub('\"', "", tidySD$Ar.fixed = TRUE)
-        
-        
- #Add artist genre info. to descriptive data frame 
-         ar_gen_vec <- c("ar_gen_list")
-         small_spotify$ArtistGenre <- c(ar_gen_list)
-         small_spotify
-        
-        
-        
-                                       #Getting artist type metadata from Musicbrainz API 
- 
-devtools::install_github("dmi3kno/musicbrainz")
 install.packages("dplyr")
-install.packages("furrr")
-install.packages("purrr")
-library(purrr)
-library(furrr)
 library(dplyr)
+install.packages("purrr")
+install.packages("tidyverse")
+install.packages("jsonlite")
+
+                            #MusicxMatch API to get Track Genre 
+install.packages ("devtools")
+library(devtools)
+install_github("fernandabruno/musixmatchR")
+library(musixmatchR)
+
+#Set up environment.created ArtistTrack to have a df for iterating over just Artist/Track. 
+              apikey <- "39a1a9decf0f3adc32b5bdad4c55a600"
+              ArtistTrack <- small_spotify[,2:3]
+              colnames(ArtistTrack)<- c("Artist", "Track")
+
+#define function 
+              song_genre <- function(x= artist, y= track) {
+                output <- searchTrack(x, y,apikey)
+                output_1 <-head(output[["song_genre"]],1)
+                output_2 <- as.character(as.factor(output_1))
+                return(paste(output_2))
+              }
+#iterate and organize 
+  library(jsonlite) # stops if you don't do this first 
+              
+          song_1 <- ArtistTrack %>% rowwise %>% 
+            mutate(stuff = song_genre(Artist,Track)) %>%
+            tidyr::separate(stuff,c("Track Genre 1", " Track Genre 2"), sep = ",") 
+
+#add track genre to data frame 
+        song_2 <- song_1 %>%
+          select(`Track Genre 1`, ` Track Genre 2`)
+        
+        small_spotify <- cbind(small_spotify, song_2)
+
+#Update Col names. 
+    library(tidyverse)
+    colnames(small_spotify) <- c("Rank", "Artist", "Track", "Total Streams", "Total Weeks", "Status","Track Genre 1", "Track Genre 2")
+    
+#So far have rank, artist, track, total streams, total weeks, status, track genre 1, track genre 2.
+#going to the next API to get artist type. 
+
+                          #Getting artist type metadata from Musicbrainz API 
+
+devtools::install_github("dmi3kno/musicbrainz")
+install.packages("furrr")
+library(furrr)
 library(musicbrainz)
 
-# edit wrapper search_artist function
-                            my_typesearch <- function(x)
-                            {search_artists(x, limit = 1) %>% 
-                                select(name, type, gender)}
+# create own function out of wrapper "search_artist" function
+            my_typesearch <- function(x)
+            {search_artists(x, limit = 1) %>% 
+                select(name, type, gender)}
 
 #apply function to list subset of descriptive data frame 
 
-                  list_test_3 <- c(small_spotify[1:100,2])
-                  list_test_3 [] <- as.character(list_test_3)
-                  testing_list_4 <- vector("list", length = length(list_test_3))
-                  names(testing_list_4) <- list_test_3
+          list_test_3 <- c(small_spotify[1:100,2])
+          list_test_3 [] <- as.character(list_test_3)
+          testing_list_4 <- vector("list", length = length(list_test_3))
+          names(testing_list_4) <- list_test_3
 
-                testing_list_5 <- map_df(list_test_3, my_typesearch)
+testing_list_5 <- map_df(list_test_3, my_typesearch)
 
 #merge type and gender and edit fields 
-install.packages("tidyr")                
-library(tidyr)
-            ArtistType <- paste(testing_list_5$type,testing_list_5$gender, sep = " ")
-            ArtistType<- gsub("Person","Solo",ArtistType)
-            ArtistType <- gsub("NA",'', ArtistType)
+      library(tidyr)
+      ArtistType <- paste(testing_list_5$type,testing_list_5$gender, sep = " ")
+      ArtistType<- gsub("Person","Solo",ArtistType)
+      ArtistType <- gsub("NA",'', ArtistType)
 
 #add to data frame 
-                              small_spotify$type <- c(ArtistType)
-                              
-                              
-                              
-                              
-                              
-                              
-                                            #MusicxMatch API to get Track Genre 
-  install.packages ("devtools")
-  library(devtools)
-  install_github("fernandabruno/musixmatchR")
-  library(musixmatchR)
-  
-  #Set up environment. 
-              apikey <- "XXXXXXXXXXXXXXXX"
-              ArtistTrack <- small_spotify[,2:3]
-              colnames(ArtistTrack)<- c("Artist", "Track")
-                 
- #define function 
-             song_genre <- function(x= artist, y= track) {
-              output <- searchTrack(x, y,apikey)
-              output_1 <-head(output[["song_genre"]],1)
-              output_2 <- as.character(as.factor(output_1))
-              return(paste(output_2))
-            }
-  #iterate 
-              song_1 <- ArtistTrack %>% rowwise %>% 
-              mutate(stuff = song_genre(Artist,Track)) %>%
-              tidyr::separate(stuff,c("Track Genre 1", " Track Genre 2"), sep = ",") 
-              
-    #add track genre to descriptive data frame 
-    
-          song_2 <- song_1 %>%
-         select(`Track Genre 1`, ` Track Genre 2`)
-       
-      small_spotify <- cbind(small_spotify, song_2)
-      
-# organize, rename cols, split artist genre. 
-        library(tidyverse)
-         
-         colnames(small_spotify) <- c("Rank", "Artist", "Title", "Total Streams", "Total Weeks", "Status", "Artist Genre", "Track Genre 1", "Track Genre 2")
-        
-        small_spotify <-separate(small_spotify, 'Artist Genre',into = c("Ar.Genre1", "Ar.Genre2", "Ar.Genre3"), sep= ",") 
+small_spotify$type <- c(ArtistType)
 
+#Spotify API in spotifyr for: Artist Genre, Track URI, Artist URI,...
+#Track popularity, Artist No. followers, Album, audio features, release date. 
 
-
-
-            # Spotify API with wrapper to get track audio features, track popularity, an artists number of followers. 
+#first: get access 
 
 devtools::install_github('charlie86/spotifyr')
 devtools::install_github('JosiahParry/geniusR')
 library(spotifyr)
 
-Sys.setenv(SPOTIFY_CLIENT_ID = "XXXXXXXXXX")
-Sys.setenv(SPOTIFY_CLIENT_SECRET = "XXXXXXXXXXXXXX")
+Sys.setenv(SPOTIFY_CLIENT_ID = "e4f3939a5c4d4d12bfec03c18e3c57ef")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "5e402369f6d14e9d84e925ff88ce84f8")
 
 access_token <- get_spotify_access_token()
-      
-                 
-                 #Create data frame with Artist and track Uris'. URIs are used for the rest of the look ups I need in this wrapper. 
 
-#Define function from get_tracks wrapper function 
-#we want a data frame 
 
-                URIs <- function(x=Track) {
-                  output <- get_tracks(x, return_closest_track = TRUE) %>%
-                    select(artist_uri)
-                 output2 <- get_tracks(x, return_closest_track = TRUE) %>%
-                   select(track_uri)
-                 hey<-data.frame(output, output2)
-                 colnames(hey) <- c("artisturi","trackuri")
-                 return(hey)
-                }
-          # lil is just the artist and track name, uri_info is a data frame of URI info, bind uri info to small_spotify 
-
-          lil <- ArtistTrack[1:100,2] 
-          uri_info <-map_df(lil,URIs)
-          small_spotify <- cbind(small_spotify,uri_info)
+                            #ARTIST AND TRACK URI (done in the same step) 
+# define function 
+      URIs <- function(x=Track) {
+        
+        output <- get_tracks(x, return_closest_track = TRUE) %>%
+          select(artist_uri)
+        output2 <- get_tracks(x, return_closest_track = TRUE) %>%
+          select(track_uri)
+        hey<-data.frame(output, output2)
+        colnames(hey) <- c("artisturi","trackuri")
+        return(hey)
+      }
+          lil <- ArtistTrack[1:100,2] #I just want track so I made this. 
           
-  # Make sure each URI is unique so we can use URI for searches.... find and replace duplicates 
-              small_spotify %>%
-              filter(duplicated(small_spotify$track_uri))
-  
-  #Replace dubplicate Track URIS found in row 56 and 38 
-                            small_spotify[56,14] <- "50kpGaPAhYJ3sGmk6vplg0"
-                            small_spotify[56,13] <- "1uNFoZAHBGtllmzznpCI3s"
-                            small_spotify[38,13] <- "1uNFoZAHBGtllmzznpCI3s"
-                            small_spotify[38,14] <- "09CtPGIpYB4BrO8qb1RGsF"
+#iterate and add to small_spotify 
+              uri_info <-map_df(lil,URIs)
+              small_spotify <- cbind(small_spotify,uri_info)
 
-                        # Add Track popularity to Small_spotify 
-                       
-  #Track popularity function 
-                track_pop <- function(x) {
-                  output <- get_track_popularity(x)
-                  output <- data.frame(x, output, stringsAsFactors = FALSE)
-                  return(output) 
-                }
-# Use function to iterate over list of tracks 
-                  e <- track_pop(tracks) 
-                  e <- e %>% select(track_popularity)
-#add to data frame.  
-                  small_spotify <- cbind(small_spotify,e)
-                  cbind(small_spotify,e)
-                  
-                  
-                  
-                                # repeat the process for number of artist followers. 
-#define function
-                      artist_follow <- function(x){ 
-                        output<- get_artists(x, return_closest_artist =  TRUE)
-                        output <- output %>% select(artist_num_followers)
-                        return(output)}
-#use map function to get data frame output of artist followers. 
-                          w <- map_df(small_spotify$Artist, artist_follow)
-                          small_spotify <- cbind(small_spotify,w)
-                          
-                                                   # Get Album each track is on. 
-         
-         album <- function(x, y){
-           out <- get_tracks(x, y, return_closest_track = TRUE)
-           out <-  head(out[["album_name"]],1)
-           return(paste(out))}
-         
-         alb_1 <- ArtistTrack %>% rowwise %>% 
-           mutate(trackalbum = album(Track,Artist))
-           
-           small_spotify <- cbind(small_spotify, alb_1)
-           
+# find and replace track uri duplicates. otherwise won't be able to get correct track level data. 
+small_spotify %>%
+  filter(duplicated(small_spotify$track_uri))
+
+ #Replaced by hand because there weren't alot, will have to figure out a better way. 
+          small_spotify[56,11] <- "50kpGaPAhYJ3sGmk6vplg0"
+          small_spotify[56,10] <- "1uNFoZAHBGtllmzznpCI3s"
+          small_spotify[38,10] <- "1uNFoZAHBGtllmzznpCI3s"
+          small_spotify[38,11] <- "09CtPGIpYB4BrO8qb1RGsF"
+
+          
+                    # TRACK AUDIO FEATURES.           
+# Made dataframe of track and track URI so I can use these variables only. 
+          
+tracks <- select(small_spotify, "Track", "trackuri")
+tracks <- tracks[1:100,]
+tracks <- data.frame(tracks)
+colnames(tracks)<- c("Track", "track_uri")
+
+#define function. 
+        Audio_Features <- function(x) {
+          output <- get_track_audio_features(x) 
+          return(output)
+        }
+# trying to see which URI didnt work... 
+       yyy<-  left_join(q,tracks)
+       anti_join(tracks,yyy)
+#it was work by rihanna so I used get_tracks to replace and find correct URI. 
+       tracks[54,2] <- "32lmL4vQAAotg6MrJnhlQZ"
+
+# search   
+              q <-Audio_Features(tracks)
+              small_spotify <- bind_cols(small_spotify,q[,-12])
+
+
+#Track popularity 
+track_pop <- function(x) {
+  output <- get_track_popularity(x)
+  output <- data.frame(x, output, stringsAsFactors = FALSE)
+  return(output) 
+}
+
+e <- track_pop(tracks) 
+e <- e %>% select(track_popularity)
+#add to Df. 
+small_spotify <- cbind(small_spotify,e)
+
+#ARtist followers 
+
+artist_follow <- function(x){ 
+  output<- get_artists(x, return_closest_artist =  TRUE)
+  output <- output %>% select(artist_num_followers)
+  return(output)}
+
+w <- map_df(small_spotify$Artist, artist_follow)
+small_spotify <- cbind(small_spotify,w)
+
+
+
+#Edited Aritst Genre Function.... 
+pipi<- function(x){
+  output <- get_artists(x, return_closest_artist = TRUE) %>%
+    select(artist_genres) 
+  return(output)}
+
+
+Artist_Genre_final <- 
+  ArtistTrack %>% mutate(ccc= map(Artist, pipi)) %>%
+  unnest()
+# add to data frame and remove extra columns. 
+small_spotify <- cbind(small_spotify,Artist_Genre_final)
+small_spotify <- small_spotify[,-29]
+small_spotify <- small_spotify[,-28]
+
+
+#Work in progress to remove extra characters. 
+cat(paste(small_spotify$artist_genres[[]]))
+gsub("c(", "", Artist_Genre_final$artist_genres, fixed="TRUE")
+gsub(")", "", Artist_Genre_final$artist_genres)
+
+l <- function(x){cat(paste(small_spotify$artist_genres[[x]], collapse=" "))}
+
+#releasedate can come from get_artist_albums, and album that track belongs to can come from Get_tracks.
+
+
+get_tracks("one dance", "drake", return_closest_track = TRUE) %>% select(track_name, artist_name,album_id)
+
+#Get track album information 
+#define function. 
+album <- function(x, y){
+  out <- get_tracks(x, y, return_closest_track = TRUE)
+  out <-  head(out[["album_name"]],1)
+  return(paste(out))}
+#add album to ArtistTrack with dplyr
+alb_1 <- ArtistTrack %>% rowwise %>% 
+  mutate(trackalbum = album(Track,Artist))
+
+#vector of names to for filtering. 
+Alb_search <- c(alb_1$trackalbum)
+
+
+#This function uses spotifyr to search for release date of albums from a list of albums each track is found on. I filtered to keep the album names listed. 
+ok <- function(x){
+  output <- get_artist_albums(x, return_closest_artist = TRUE) %>%
+    filter(album_name %in% Alb_search) %>%
+    select(artist_name,album_release_date,album_name)
+  return(output)
+}
+
+# iterate over aritsts with ok function  to get all release dates of albums we need, result isnt in order. 
+release_date <- map_df(ArtistTrack$Artist,ok)
+
+# renaming column names to match alb_1 (dataframe with albums of each track) to merge with dplyr more easily. 
+release_date <- rename(release_date, Artist= artist_name, trackalbum=album_name)
+
+#  I have all the release date info for the alb_1 in release_date but its unorganized. 
+#manipulate tables to be able to merge them and get release date for each album. 
+#so this left me with 49 albums 
+release_date1 <- release_date %>% filter(!duplicated(release_date))
+#leftjoin leaves all x but includes matches of columns in Y 
+release_date2 <- left_join(alb_1,release_date1)
+
+
+
+# Fill in Release_date2 NAs using Musicxmatch. NAs here due to singles, no album release date. 
+single_release_date <- release_date2 %>% filter(is.na(album_release_date))
+
+#define function 
+track_release <- function(x= artist, y= track) {
+  output <- searchTrack(x, y,apikey)
+  output <-head(output[["track_release"]],1)
+  return(paste(output))
+}
+#iterate and organize 
+T_release <- single_release_date %>% rowwise %>% 
+  mutate(release_date = track_release(Artist,Track),
+         release_date = gsub("T00:00:00Z","",release_date, fixed=TRUE))
+
+
+# Merger single release dates and album release dates 
+release_date_final <- left_join(release_date2,T_release) %>%
+  mutate(release.date= coalesce(album_release_date, release_date)) %>%
+  select(Artist, Track,trackalbum, release.date)
+
+
+# Add to data frame
+small_spotify <- cbind(small_spotify,release_date_final[,3:4])
+
+colnames(small_spotify)
+#Rank(1), Artist(2), Artist URi(10), Track(3), trackuri(11), track release date(30), 
+#album(29), total streams(4), total weeks(5), track pop(26), artist followers(27), , 
+#t. gen 1(7), t.gen 2(8), , ar gen(28)
+
+#1, 2, 10, 3, 11, 30, 29, 
+
+
+new_spotify <- small_spotify %>%
+  select(Rank, Artist, artisturi, Track, trackuri, 
+         trackalbum,release.date,`Total Streams`, `Total Weeks`, track_popularity, type, Status,
+         artist_num_followers,artist_genres, `Track Genre 1`, `Track Genre 2`, danceability,energy, key,loudness,mode,              
+         speechiness,acousticness,instrumentalness,liveness, valence, tempo, duration_ms,time_signature,    
+         key_mode) 
+
+names(new_spotify) <- c("Rank", "Artist", "Artist URI", "Track", "Track URI", 
+  "Album(track)","Release Date(track)","Total Streams(track)", "Total Weeks(track)", "Track Popularity", "Type(artist)", "Status",
+  "No.Followers(artist)","Genres(artist)","Genre1(track)","Genre2(track)", "danceability","energy", "key","loudness","mode",              
+  "speechiness","acousticness","instrumentalness","liveness", "valence", "tempo", "duration_ms","time_signature",    
+  "key_mode")
+
